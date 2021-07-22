@@ -31,7 +31,7 @@ class DockerContainer:
     bash_stdout: IO[bytes]
 
     def __init__(
-        self, docker_image: str, simulate_32_bit: bool = False, cwd: Optional[PathOrStr] = None
+        self, docker_image: str, simulate_32_bit: bool = False, cwd: Optional[PathOrStr] = None, cross_compile: bool = False
     ):
         if not docker_image:
             raise ValueError("Must have a non-empty docker image to run.")
@@ -40,11 +40,13 @@ class DockerContainer:
         self.simulate_32_bit = simulate_32_bit
         self.cwd = cwd
         self.name: Optional[str] = None
+        self.cross_compile = cross_compile
 
     def __enter__(self) -> "DockerContainer":
         self.name = f"cibuildwheel-{uuid.uuid4()}"
         cwd_args = ["-w", str(self.cwd)] if self.cwd else []
         shell_args = ["linux32", "/bin/bash"] if self.simulate_32_bit else ["/bin/bash"]
+        docker_in_docker_args = ['-v', '/var/run/docker.sock:/var/run/docker.sock'] if self.cross_compile else [] # Enable docker inside docker
         subprocess.run(
             [
                 "docker",
@@ -52,6 +54,7 @@ class DockerContainer:
                 "--env=CIBUILDWHEEL",
                 f"--name={self.name}",
                 "--interactive",
+                *docker_in_docker_args,
                 "--volume=/:/host",  # ignored on CircleCI
                 *cwd_args,
                 self.docker_image,

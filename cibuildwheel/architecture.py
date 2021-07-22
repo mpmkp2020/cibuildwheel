@@ -19,6 +19,7 @@ class Architecture(Enum):
     # linux archs
     i686 = "i686"
     aarch64 = "aarch64"
+    aarch64xc = 'aarch64xc'
     ppc64le = "ppc64le"
     s390x = "s390x"
 
@@ -77,6 +78,7 @@ class Architecture(Enum):
                 Architecture.x86_64,
                 Architecture.i686,
                 Architecture.aarch64,
+                Architecture.aarch64xc,
                 Architecture.ppc64le,
                 Architecture.s390x,
             }
