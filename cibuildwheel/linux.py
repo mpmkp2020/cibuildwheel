@@ -18,9 +18,9 @@ from .util import (
 )
 from .cross_compile import (
     TargetArchEnvUtil,
-    plat_name,
     native_docker_images,
-    prepare_toolchain,
+    setup_qemu,
+    xc_before_all,
     platform_tag_to_arch,
 )
 
@@ -90,6 +90,10 @@ def build(options: BuildOptions) -> None:
     container_package_dir = container_project_path / abs_package_dir.relative_to(cwd)
     container_output_dir = PurePath("/output")
 
+    if options.cross_compile is True:
+        print("\nRegistering qemu to run ppc64le/AArch64 docker containers...\n")
+        setup_qemu()
+
     for implementation, platform_tag, docker_image in platforms:
         platform_configs = [
             c
@@ -130,7 +134,7 @@ def build(options: BuildOptions) -> None:
                         package=container_package_dir,
                     )
                     if  need_cross_compilation is True:
-                        prepare_toolchain(docker, before_all_prepared, target_arch)
+                        xc_before_all(docker, before_all_prepared, target_arch, env)
                     else:
                         docker.call(["sh", "-c", before_all_prepared], env=env)
                 for config in platform_configs:
@@ -266,7 +270,7 @@ def build(options: BuildOptions) -> None:
                                     options.repair_command, wheel=built_wheel, dest_dir=repaired_wheel_dir
                                 )
                                 # Repair the wheel in a architecture specific container
-                                dockerxc.call([target_arch_env.host_machine_tmp_in_container+'/repair_wheel.sh', repair_command_prepared])
+                                dockerxc.call([target_arch_env.host_machine_tmp_in_container+'/repair_wheel.sh', target_arch_env.host_machine_deps_in_container, repair_command_prepared])
                             else:
                                 dockerxc.call(["mv", built_wheel, repaired_wheel_dir])
                             repaired_wheels = dockerxc.glob(repaired_wheel_dir, "*.whl")
