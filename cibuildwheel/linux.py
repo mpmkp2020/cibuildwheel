@@ -138,11 +138,8 @@ def build(options: BuildOptions) -> None:
                     else:
                         docker.call(["sh", "-c", before_all_prepared], env=env)
                 for config in platform_configs:
-                    #change the display message if required
-                    if  need_cross_compilation is True:
-                        log.build_start(config.identifier[:-2])
-                    else:
-                        log.build_start(config.identifier)
+
+                    log.build_start(config.identifier)
 
                     dependency_constraint_flags: List[PathOrStr] = []
 
