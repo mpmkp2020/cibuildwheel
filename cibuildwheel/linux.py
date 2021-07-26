@@ -20,7 +20,7 @@ from .cross_compile import (
     TargetArchEnvUtil,
     native_docker_images,
     setup_qemu,
-    xc_before_all,
+    xc_execute_cmd,
     platform_tag_to_arch,
 )
 
@@ -116,6 +116,8 @@ def build(options: BuildOptions) -> None:
                 log.step("Copying project into Docker...")
                 docker.copy_into(Path.cwd(), container_project_path)
 
+                target_arch = platform_tag_to_arch(platform_tag)
+
                 if options.before_all:
                     log.step("Running before_all...")
 
@@ -126,15 +128,13 @@ def build(options: BuildOptions) -> None:
                         env, executor=docker.environment_executor
                     )
 
-                    target_arch = platform_tag_to_arch(platform_tag)
-
                     before_all_prepared = prepare_command(
                         options.before_all,
                         project=container_project_path,
                         package=container_package_dir,
                     )
                     if  need_cross_compilation is True:
-                        xc_before_all(docker, before_all_prepared, target_arch, env)
+                        xc_execute_cmd(docker, before_all_prepared, False, target_arch, env)
                     else:
                         docker.call(["sh", "-c", before_all_prepared], env=env)
                 for config in platform_configs:
@@ -198,7 +198,10 @@ def build(options: BuildOptions) -> None:
                             project=container_project_path,
                             package=container_package_dir,
                         )
-                        docker.call(["sh", "-c", before_build_prepared], env=env)
+                        if  need_cross_compilation is True:
+                            xc_execute_cmd(docker, before_build_prepared, True, target_arch, env)
+                        else:
+                            docker.call(["sh", "-c", before_build_prepared], env=env)
 
                     log.step("Building wheel...")
 

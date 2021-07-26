@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 from typing import Dict, Optional
 from .docker_container import DockerContainer
@@ -40,31 +41,36 @@ def setup_qemu():
     )
 
 # Install the dependencies into the toolchain
-def xc_before_all(
+def xc_execute_cmd(
         docker: DockerContainer,
-        before_all_prepared: str,
+        cmd_str: str,
+        before_build: bool,
         target_arch: str,
         env: Optional[Dict[str, str]] = None
 ):
+    invalid_cmd = False
+    pip_install_env_create = True
+    tmpdirpath=""
     target_arch_env=TargetArchEnvUtil(env, target_arch)
 
-    cmds=[cmd.strip().replace('\t', ' ') for cmd in before_all_prepared.split("&&")]
+    cmds=[cmd.strip().replace('\t', ' ') for cmd in cmd_str.split("&&")]
 
     # Copy install_deps.sh script from container's tmp to host machine tmp and use it
-    docker.call(
-        [
-            'cp',
-            target_arch_env.tmp+'/install_deps.sh',
-            target_arch_env.host_machine_tmp_in_container
-        ]
-    )
+    if not os.path.isfile(target_arch_env.tmp+'/install_deps.sh'):
+        docker.call(
+            [
+                'cp',
+                target_arch_env.tmp+'/install_deps.sh',
+                target_arch_env.host_machine_tmp_in_container
+            ]
+        )
 
     for cmd in cmds:
         if cmd.startswith('yum '):
 
             # Install the dependencies into the emulated docker container and
             # Copy back the installed files into host machine
-            print("\nInstalling package in target's native container and copy the artifacts into toolchain\n");
+            print("\nRunning cmd: '" + cmd + "' in target's native container and copy the artifacts into the toolchain\n");
             subprocess.run(
                 [
                     "docker",
@@ -91,5 +97,78 @@ def xc_before_all(
                         target_arch_env.toolchain_deps
                     ]
                 )
-        else:
+        elif cmd.startswith('pip ') or cmd.startswith('python ') or cmd.startswith('python3 '):
+            if pip_install_env_create is True and before_build is True:
+                tmpdirpath = docker.call(
+                              [
+                                  'mktemp',
+                                  '-d'
+                              ],
+                              capture_output=True
+                          ).strip()
+                env['PATH'] = f'{tmpdirpath}:{env["PATH"]}'
+
+                build_pip = docker.call(
+                              [
+                                  'which',
+                                  'build-pip'
+                              ],
+                              env=env,
+                              capture_output=True
+                          ).strip()
+                build_pybin = build_pip[:build_pip.rindex('/')]
+
+                docker.call(
+                    [
+                        'ln',
+                        '-s',
+                        build_pip,
+                        tmpdirpath+'/pip'
+                    ],
+                    env=env
+                )
+                docker.call(
+                    [
+                        'ln',
+                        '-s',
+                        build_pybin + '/build-pip3',
+                        tmpdirpath+'/pip3'
+                    ],
+                    env=env
+                )
+                docker.call(
+                    [
+                        'ln',
+                        '-s',
+                        build_pybin + '/build-python',
+                        tmpdirpath+'/python'
+                    ],
+                    env=env
+                )
+                docker.call(
+                    [
+                        'ln',
+                        '-s',
+                        build_pybin + '/build-python3',
+                        tmpdirpath+'/python3'
+                    ],
+                    env=env
+                )
+
+                pip_install_env_create = False
+                #shutil.rmtree(tmpdirpath)
             docker.call(["sh", "-c", cmd], env=env)
+        else:
+            print("During cross compilation, in wheel build phase, only pip/python/yum related commands are allowed")
+            invalid_cmd = True
+            break
+
+    docker.call(
+        [
+            'rm',
+            '-rf',
+            tmpdirpath
+        ]
+    )
+    if invalid_cmd is True:
+        sys.exit(1)
