@@ -7,7 +7,7 @@ from .docker_container import DockerContainer
 # Docker container which will be used to resove dependencies
 # while crosss compiling the wheels
 native_docker_images = {
-    "aarch64": "quay.io/pypa/manylinux2014_aarch64"
+    "aarch64": "quay.io/pypa/manylinux2014_aarch64:2021-07-14-67a6e11"
 }
 
 def platform_tag_to_arch(platform_tag):
