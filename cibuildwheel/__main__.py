@@ -35,7 +35,7 @@ MANYLINUX_ARCHS = (
     "i686",
     "pypy_x86_64",
     "aarch64",
-    "aarch64xc",
+    "xc_aarch64",
     "ppc64le",
     "s390x",
     "pypy_aarch64",
@@ -186,13 +186,18 @@ def main() -> None:
 
     archs_config_str = args.archs or options("archs", sep=" ")
     cross_archs = options('cross-compile-archs', sep=" ")
-    cross_compile = False
+    cross_compile_archs=[]
     if cross_archs is not None:
         for cross_arch in cross_archs.split():
-            archs_config_str = " ".join(archs_config_str.replace(cross_archs, '').split()) \
-                                                                  + ' ' + cross_archs + 'xc'
+            archs_config_str = " ".join(archs_config_str.replace(cross_archs, '').split()) + ' ' + cross_archs
+            cross_compile_archs.append(cross_arch)
         archs_config_str=archs_config_str.strip()
-        cross_compile = True
+
+    if not cross_compile_archs:
+        cross_compile_archs=None
+        skip_config=skip_config+" xc*"
+    else:
+        cross_compile_archs=tuple(cross_compile_archs)
 
     build_frontend_str = options("build-frontend", env_plat=False)
     environment_config = options("environment", table={"item": '{k}="{v}"', "sep": " "})
@@ -330,7 +335,7 @@ def main() -> None:
         dependency_constraints=dependency_constraints,
         manylinux_images=manylinux_images or None,
         build_frontend=build_frontend,
-        cross_compile=cross_compile,
+        cross_compile_archs=cross_compile_archs,
     )
 
     # Python is buffering by default when running on the CI platforms, giving problems interleaving subprocess call output with unflushed calls to 'print'

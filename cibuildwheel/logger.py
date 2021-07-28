@@ -18,7 +18,6 @@ PLATFORM_IDENTIFIER_DESCIPTIONS = {
     "manylinux_x86_64": "manylinux x86_64",
     "manylinux_i686": "manylinux i686",
     "manylinux_aarch64": "manylinux aarch64",
-    "manylinux_aarch64xc": "manylinux aarch64(cross compiling)",
     "manylinux_ppc64le": "manylinux ppc64le",
     "manylinux_s390x": "manylinux s390x",
     "win32": "Windows 32bit",
@@ -193,6 +192,8 @@ def build_description_from_identifier(identifier: str) -> str:
         build_description += "CPython"
     elif python_interpreter == "pp":
         build_description += "PyPy"
+    elif python_interpreter == "xc":
+        build_description += "CPython(cross compile)"
     else:
         raise Exception("unknown python")
 

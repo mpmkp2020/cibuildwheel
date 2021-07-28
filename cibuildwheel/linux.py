@@ -73,7 +73,7 @@ def build(options: BuildOptions) -> None:
         ("cp", "manylinux_x86_64", options.manylinux_images["x86_64"]),
         ("cp", "manylinux_i686", options.manylinux_images["i686"]),
         ("cp", "manylinux_aarch64", options.manylinux_images["aarch64"]),
-        ("cp", "manylinux_aarch64xc", options.manylinux_images["aarch64xc"]),
+        ("xc", "manylinux_aarch64", options.manylinux_images["xc_aarch64"]),
         ("cp", "manylinux_ppc64le", options.manylinux_images["ppc64le"]),
         ("cp", "manylinux_s390x", options.manylinux_images["s390x"]),
         ("pp", "manylinux_x86_64", options.manylinux_images["pypy_x86_64"]),
@@ -90,11 +90,15 @@ def build(options: BuildOptions) -> None:
     container_package_dir = container_project_path / abs_package_dir.relative_to(cwd)
     container_output_dir = PurePath("/output")
 
-    if options.cross_compile is True:
+    if options.cross_compile_archs:
         print("\nRegistering qemu to run ppc64le/AArch64 docker containers...\n")
         setup_qemu()
 
     for implementation, platform_tag, docker_image in platforms:
+
+        if options.cross_compile_archs and platform_tag.endswith(options.cross_compile_archs) and implementation is not 'xc':
+            continue
+
         platform_configs = [
             c
             for c in python_configurations
@@ -105,7 +109,7 @@ def build(options: BuildOptions) -> None:
 
         try:
             log.step(f"Starting Docker image {docker_image}...")
-            need_cross_compilation = True if options.cross_compile and platform_tag.endswith('xc') else False
+            need_cross_compilation = True if options.cross_compile_archs and implementation is 'xc' else False
             with DockerContainer(
                 docker_image,
                 simulate_32_bit=platform_tag.endswith("i686"),
@@ -209,7 +213,19 @@ def build(options: BuildOptions) -> None:
 
                     verbosity_flags = get_build_verbosity_extra_flags(options.build_verbosity)
 
-                    if options.build_frontend == "pip":
+                    if need_cross_compilation:
+                        docker.call(
+                            [
+                                "python",
+                                "setup.py",
+                                "bdist_wheel",
+                                f"--dist-dir={built_wheel_dir}",
+                                *verbosity_flags,
+                            ],
+                            env=env,
+                            cwd=container_package_dir,
+                        )
+                    elif options.build_frontend == "pip":
                         docker.call(
                             [
                                 "python",

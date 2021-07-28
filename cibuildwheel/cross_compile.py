@@ -11,7 +11,7 @@ native_docker_images = {
 }
 
 def platform_tag_to_arch(platform_tag):
-    return platform_tag.split('_')[1][:-2]
+    return platform_tag.replace("manylinux_", '')
 
 # Setup environment to prepare the toolchain
 class TargetArchEnvUtil:
